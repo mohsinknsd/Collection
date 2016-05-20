@@ -9,7 +9,7 @@ import java.util.TimerTask;
  * If user continue touches that view, {@code onTouchesCompleted} will be fired.
  * If user delay in touches, then touch counter will be reset and started again.
  * @author Mohsin Khan
- * @date 2/13/2016
+ * @date 2/13/2016 
  */
 public abstract class ContinuousTouchListener implements View.OnTouchListener{
     /**
