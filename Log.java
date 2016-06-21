@@ -1,5 +1,4 @@
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -57,9 +56,34 @@ public class Log {
 	 */
 	private static Properties messages = new Properties();
 	
+	/**
+	 * INF log will come on the console with log level [INF] and will be stored in INF Log file also.
+	 * In this type of logs, every activity of the system will be recorded like initializing some instance, conecting to
+	 * the remote server, sending data, receiving data etc.
+	 * <b>Source of Log :</b> log source will be messages.properties file only.
+	 */
 	private static final String INF = "INF";
+	
+	/**
+	 * As the name implies, this log level will be used to approach errors only. In this category, exceptions also can be used.
+	 * This type of logs will also be recorded in ERR log file.
+	 * <b>Source of Log :</b> log source will be messages.properties file, {@link KeyedMessage} and {@link Exception}.
+	 */
 	private static final String ERR = "ERR";
+	
+	/**
+	 * It is for warnings. These warnings will also be recorded in ERR log file and console. This type of logs should be
+	 * anything which will inform that something is not right but does not effecting the system.
+	 * <b>Source of Log :</b> log source will be messages.properties file only.
+	 */
 	private static final String WRN = "WRN";
+	
+	/**
+	 * DEBUG logs are only for development purpose or debugging, It mean these can be removed after project deployment. 
+	 * Fact is that, these logs will not be recorded in log files.  
+	 * <b>Source of Log :</b> Any string can be passed to DBG log. And {@link KeyedMessage} is also supported to keep a sight 
+	 * on data to be process.
+	 */
 	private static final String DBG = "DBG";
 	
 	/**
@@ -68,110 +92,139 @@ public class Log {
 	 */
 	static {
 		try {
-			//first loading configuration to get default configuration of logger and date time format 
-			messages.load(new FileReader(new File("resources/config.properties")));
+			//first loading configuration to get default configuration of logger and date time format 			
+			messages.load(Log.class.getResourceAsStream("/config.properties"));
 			path = Boolean.parseBoolean(messages.getProperty("write.log.files")) ? messages.getProperty("log.file.dir") 
-					+ ((SystemUtils.IS_OS_WINDOWS) ? "iot-hub//" : "iot-hub\\") : null;			
+					+ ((SystemUtils.IS_OS_WINDOWS) ? "system-logs" + File.separator : "system-logs" + File.separator) : null;			
 			formatter = new SimpleDateFormat(messages.getProperty("display.date.format"), Locale.US);
 			
 			//now loading all messages
-			messages.load(new FileReader(new File("resources/messages.properties")));
+			//messages.load(new FileReader(new File("resources/messages.properties")));
+			messages.load(Log.class.getResourceAsStream("/messages.properties"));
 		} catch (IOException | ExceptionInInitializerError e) {			
 			e.printStackTrace();
 		}
 	}
 
+	/**
+	 * This will simply arrange the data in particular format and print it on system console using output stream.
+	 * @param c class name to know origin
+	 * @param x log level like INF or DBG
+	 * @param s original content to print
+	 * @return complete log with the format and time-stamp
+	 */
 	private synchronized static String out(Class<?> c, String x, String s) {
 		/*System.out.printf("[" + formatter.format(new Date(System.currentTimeMillis()))
 		+ "]-[INF]-[%-"+LIMIT+"."+LIMIT+"s] %s%n", get(c.getSimpleName()), s);*/
 		String log = "[" + formatter.format(new Date(System.currentTimeMillis()))
-		+ "]-[" + x + "]-[" + get(c.getSimpleName()).substring(0, LIMIT)  + "] " + s + "\n";
+		+ "]-[" + x + "]-[" + get(c.getSimpleName()).substring(0, LIMIT)  + "]" + s + "\n";
 		System.out.print(log);
 		return log;
 	}
-
+	
+	/**
+	 * This will simply arrange the data in particular format and print it on system console using error stream.
+	 * @param c class name to know origin
+	 * @param x log level like ERR or WRN
+	 * @param s original content to print
+	 * @return complete log with the format and time-stamp
+	 */
 	private synchronized static String err(Class<?> c, String x, String s) {
 		/*System.err.printf("[" + formatter.format(new Date(System.currentTimeMillis()))
 		+ "]-[" + x + "]-[%-"+LIMIT+"."+LIMIT+"s] %s%n", get(c.getSimpleName()), s);*/
 		String log = "[" + formatter.format(new Date(System.currentTimeMillis()))
-		+ "]-[" + x +"]-[" + get(c.getSimpleName()).substring(0, LIMIT)  + "] " + s + "\n";
+		+ "]-[" + x +"]-[" + get(c.getSimpleName()).substring(0, LIMIT)  + "]" + s + "\n";
 		System.err.print(log);
 		return log;
 	}
 
 	/**
-	 * INFORMATION LOG
+	 * INFORMATION LOG <br>
 	 * Method will print log on system console using {@code System.out.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param params first string will be key for the message stored in messages.properties & remaining will be parameters
+	 * @param params first string will be key for the message stored in messages.properties and remaining will be parameters
 	 */
 	public static void i(Class<?> c, String ... params) {
-		writeToFile(out(c, INF, ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
+		writeToFile(out(c, INF, " " + ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
 				(Object[]) Arrays.copyOfRange(params, 1, params.length)) : messages.getProperty(params[params.length - 1]))));
+	}
+	
+	/**
+	 * INFORMATION LOG <br>
+	 * Method will print log on system console using {@code System.out.println()}. It is specially designed for 
+	 * {@link Properties} instances while starting kafka server.
+	 * @param c provide class, to know which log belongs to which class
+	 * @param p kafka properties
+	 */
+	public static void i(Class<?> c, Properties p) {
+		writeToFile(out(c, INF, " " + "Kafka Broker ID : " + p.getProperty("broker.id") + ", Zookeeper : " 
+				+ p.getProperty("zookeeper.connect") + ", Log Dirs : " + p.getProperty("log.dirs")));
 	}
 
 	/**
-	 * WARNING LOG
+	 * WARNING LOG <br>
 	 * Method will print log on system console using {@code System.err.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param params first string will be key for the message stored in messages.properties & remaining will be parameters
+	 * @param params first string will be key for the message stored in messages.properties and remaining will be parameters
 	 */
 	public static void w(Class<?> c, String ... params) {
-		writeToFile(err(c, WRN, ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
+		writeToFile(err(c, WRN, " " + ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
 				(Object[]) Arrays.copyOfRange(params, 1, params.length)) : messages.getProperty(params[params.length - 1]))));		
 	}
 	
 	/**
-	 * ERROR LOG
+	 * ERROR LOG <br>
 	 * Method will print log on system console using {@code System.err.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param params first string will be key for the message stored in messages.properties & remaining will be parameters
+	 * @param params first string will be key for the message stored in messages.properties and remaining will be parameters
 	 */
 	public static void e(Class<?> c, String ... params) {
-		writeToFile(err(c, ERR, ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
+		writeToFile(err(c, ERR, " " + ((params.length > 1) ? MessageFormat.format(messages.getProperty(params[0]), 
 				(Object[]) Arrays.copyOfRange(params, 1, params.length)) : messages.getProperty(params[params.length - 1]))));
 	}
 	
 	/**
-	 * ERROR LOG
+	 * ERROR LOG <br>
 	 * Method will print log on system console using {@code System.err.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param e exception that arises 
+	 * @param exp exception that arises 
 	 */
 	public static void e(Class<?> c, Exception exp) {
 		StringWriter sw = new StringWriter();
 	    exp.printStackTrace(new PrintWriter(sw));
-		writeToFile(err(c, ERR, sw.toString()));		
+		writeToFile(err(c, ERR, " " + sw.toString()));		
 	}
 	
 	/**
-	 * ERROR LOG
+	 * ERROR LOG <br>
 	 * Method will print {@link KeyedMessage} log on system console using {@code System.out.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param msgs main content of the log
+	 * @param msg main content of the log
 	 */
 	public static void e(Class<?> c, KeyedMessage<String, String> msg) {
-		if (msg != null) writeToFile(err(c, ERR,  new String(msg.message())));		
+		if (msg != null) writeToFile(err(c, ERR, "-[" + msg.topic().substring(0, (msg.topic().length() > 22) ? 22 : msg.topic().length()) 
+				+ "] " + new String(msg.message())));		
 	}
 
 	/**
-	 * DEBUG LOG
+	 * DEBUG LOG <br>
 	 * Method will print log on system console using {@code System.out.println()}
 	 * @param c provide class, to know which log belongs to which class
 	 * @param msg main content of the log
 	 */
 	public static void d(Class<?> c, String msg) {
-		out(c, DBG, msg);
+		out(c, DBG, " " + msg);
 	}
 	
 	/**
-	 * DEBUG LOG
+	 * DEBUG LOG <br>
 	 * Method will print {@link KeyedMessage} log on system console using {@code System.out.println()}
 	 * @param c provide class, to know which log belongs to which class
-	 * @param msgs main content of the log
+	 * @param msg main content of the log
 	 */
 	public static void d(Class<?> c, KeyedMessage<String, String> msg) {
-		if (msg != null) out(c, DBG, new String(msg.message()));		
+		if (msg != null) out(c, DBG, "-[" + msg.topic().substring(0, (msg.topic().length() > 22) ? 22 : msg.topic().length()) 
+				+ "] " + new String(msg.message()));		
 	}
 	
 	/**
@@ -185,8 +238,8 @@ public class Log {
 			file.mkdirs();
 			Calendar c = Calendar.getInstance();
 			try (FileWriter writer = new FileWriter(new File(file,
-					c.get(Calendar.DAY_OF_MONTH) + "-" + c.get(Calendar.MONTH) + "-" + c.get(Calendar.YEAR) + ".txt"
-					+ ((log.contains(ERR) || log.contains(WRN)) ? " ERR LOG " : " INF LOG ")
+					((log.contains(ERR) || log.contains(WRN)) ? "ERR LOGS " : "INFO LOGS ") 
+					+ c.get(Calendar.DAY_OF_MONTH) + "-" + c.get(Calendar.MONTH) + "-" + c.get(Calendar.YEAR) + ".LOG"
 					), true)) {
 				writer.write(log);
 			} catch (IOException e) {
@@ -195,6 +248,13 @@ public class Log {
 		}
 	}
 	
+	/**
+	 * This method will adjust string length according to LIMIT specified above. It will add dots(.) in the string if string
+	 * length is less than LIMIT to cover length. Suppose we have filename "Admin" and LIMIT is 12 then it will be converted into
+	 * "Admin......." and on the other hand we have a filename "ProducerNetwork" then it will be converted to "ProducerNetw".
+	 * @param s class file name to adjust
+	 * @return a fix length string according to limit
+	 */
 	private static String get(String s) {
 		if (s.length() < LIMIT)
 			for(int i = s.length(); i < LIMIT; i++)
