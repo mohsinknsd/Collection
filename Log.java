@@ -1,8 +1,9 @@
-package in.teramatrix.xfusion.util;
+package com.practice;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.MessageFormat;
@@ -14,8 +15,6 @@ import java.util.Locale;
 import java.util.Properties;
 
 import org.apache.commons.lang3.SystemUtils;
-
-import kafka.producer.KeyedMessage;
 
 /**
  * A default logger for the whole project to print logs on console or/and file. Specification of different log levels are 
@@ -48,6 +47,37 @@ public class Log {
 	private static final int LIMIT = 12;
 
 	/**
+	 * INF log will come on the console with log level [INF] and will be stored in INF Log file also.
+	 * In this type of logs, every activity of the system will be recorded like initializing some instance, conecting to
+	 * the remote server, sending data, receiving data etc.
+	 * <b>Source of Log :</b> Any string can be passed to INF log, if this string exists as a key in messages.properties file then
+	 * that message will be logged otherwise this String will be printed.
+	 */
+	private static final String INF = "INF";
+
+	/**
+	 * As the name implies, this log level will be used to approach errors only. In this category, exceptions also can be used.
+	 * This type of logs will also be recorded in ERR log file.
+	 * <b>Source of Log :</b> log source will be messages.properties file, any string or {@link Exception}.
+	 */
+	private static final String ERR = "ERR";
+
+	/**
+	 * It is for warnings. These warnings will also be recorded in ERR log file and console. This type of logs should be
+	 * anything which will inform that something is not right but does not effecting the system.
+	 * <b>Source of Log :</b> Any string can be passed to WRN log, if this string exists as a key in messages.properties file then
+	 * that message will be logged otherwise this String will be printed.
+	 */
+	private static final String WRN = "WRN";
+
+	/**
+	 * DEBUG logs are only for development purpose or debugging, It mean these can be removed after project deployment. 
+	 * Fact is that, these logs will not be recorded in log files.  
+	 * <b>Source of Log :</b> Any string can be passed to DBG log but message.properties is not supported here.
+	 */
+	private static final String DBG = "DBG";
+	
+	/**
 	 * Date format in the whole application can be configured from the config.properties file.
 	 * Here formatter will be initialized using default date format.
 	 */
@@ -59,50 +89,29 @@ public class Log {
 	private static Properties messages = new Properties();
 
 	/**
-	 * INF log will come on the console with log level [INF] and will be stored in INF Log file also.
-	 * In this type of logs, every activity of the system will be recorded like initializing some instance, conecting to
-	 * the remote server, sending data, receiving data etc.
-	 * <b>Source of Log :</b> log source will be messages.properties file only.
-	 */
-	private static final String INF = "INF";
-
-	/**
-	 * As the name implies, this log level will be used to approach errors only. In this category, exceptions also can be used.
-	 * This type of logs will also be recorded in ERR log file.
-	 * <b>Source of Log :</b> log source will be messages.properties file, {@link KeyedMessage} and {@link Exception}.
-	 */
-	private static final String ERR = "ERR";
-
-	/**
-	 * It is for warnings. These warnings will also be recorded in ERR log file and console. This type of logs should be
-	 * anything which will inform that something is not right but does not effecting the system.
-	 * <b>Source of Log :</b> log source will be messages.properties file only.
-	 */
-	private static final String WRN = "WRN";
-
-	/**
-	 * DEBUG logs are only for development purpose or debugging, It mean these can be removed after project deployment. 
-	 * Fact is that, these logs will not be recorded in log files.  
-	 * <b>Source of Log :</b> Any string can be passed to DBG log. And {@link KeyedMessage} is also supported to keep a sight 
-	 * on data to be process.
-	 */
-	private static final String DBG = "DBG";
-
-	/**
 	 * Loading all messages at the beginning for the faster access to messages.properties file.
 	 * This instance will be used to fetch messages using their keys.
 	 */
 	static {
 		try {
-			//first loading configuration to get default configuration of logger and date time format 			
-			messages.load(Log.class.getResourceAsStream("/config.properties"));
-			path = Boolean.parseBoolean(messages.getProperty("write.log.files")) ? messages.getProperty("log.file.dir") 
-					+ ((SystemUtils.IS_OS_WINDOWS) ? "system-logs" + File.separator : "system-logs" + File.separator) : null;			
-					formatter = new SimpleDateFormat(messages.getProperty("display.date.format"), Locale.US);
+			InputStream stream = Log.class.getResourceAsStream("/config.properties");
+			if (stream != null) {
+				//first loading configuration to get default configuration of logger and date time format 			
+				messages.load(stream);
+				path = Boolean.parseBoolean(messages.getProperty("write.log.files")) ? messages.getProperty("log.file.dir") 
+						+ ((SystemUtils.IS_OS_WINDOWS) ? "system-logs" + File.separator : "system-logs" + File.separator) : null;			
+						formatter = new SimpleDateFormat(messages.getProperty("display.date.format"), Locale.US);
 
-					//now loading all messages
-					//messages.load(new FileReader(new File("resources/messages.properties")));
-					messages.load(Log.class.getResourceAsStream("/messages.properties"));
+						//now loading all messages
+						//messages.load(new FileReader(new File("resources/messages.properties")));
+						stream = Log.class.getResourceAsStream("/messages.properties");
+						if (stream != null) {
+							messages.load(stream);	
+						}					
+			} else {
+				formatter = new SimpleDateFormat("dd MMM yyyy hh:mm:ss", Locale.US);
+			}
+
 		} catch (IOException | ExceptionInInitializerError e) {			
 			e.printStackTrace();
 		}
@@ -154,19 +163,6 @@ public class Log {
 	}
 
 	/**
-	 * INFORMATION LOG <br>
-	 * Method will print log on system console using {@code System.out.println()}. It is specially designed for 
-	 * {@link Properties} instances while starting kafka server.
-	 * @param c provide class, to know which log belongs to which class
-	 * @param p kafka properties
-	 */
-	public static void i(Properties p) {
-		String s = Thread.currentThread().getStackTrace()[2].getClassName();
-		write(out(s.substring(s.lastIndexOf('.') + 1, s.length()), INF, " " + "Kafka Broker ID : " + p.getProperty("broker.id") 
-		+ ", Zookeeper : " + p.getProperty("zookeeper.connect") + ", Log Dirs : " + p.getProperty("log.dirs")));
-	}
-
-	/**
 	 * WARNING LOG <br>
 	 * Method will print log on system console using {@code System.err.println()}
 	 * @param c provide class, to know which log belongs to which class
@@ -206,19 +202,6 @@ public class Log {
 	}
 
 	/**
-	 * ERROR LOG <br>
-	 * Method will print {@link KeyedMessage} log on system console using {@code System.out.println()}
-	 * @param c provide class, to know which log belongs to which class
-	 * @param msg main content of the log
-	 */
-	public static void e(KeyedMessage<String, String> msg) {
-		String s = Thread.currentThread().getStackTrace()[2].getClassName();
-		if (msg != null) write(err(s.substring(s.lastIndexOf('.') + 1, s.length()), ERR, "-[" 
-				+ msg.topic().substring(0, (msg.topic().length() > 22)
-						? 22 : msg.topic().length()) + "] " + new String(msg.message())));		
-	}
-
-	/**
 	 * DEBUG LOG <br>
 	 * Method will print log on system console using {@code System.out.println()}
 	 * @param c provide class, to know which log belongs to which class
@@ -227,19 +210,6 @@ public class Log {
 	public static void d(String msg) {
 		String s = Thread.currentThread().getStackTrace()[2].getClassName();
 		out(s.substring(s.lastIndexOf('.') + 1, s.length()), DBG, " " + msg);
-	}
-
-	/**
-	 * DEBUG LOG <br>
-	 * Method will print {@link KeyedMessage} log on system console using {@code System.out.println()}
-	 * @param c provide class, to know which log belongs to which class
-	 * @param msg main content of the log
-	 */
-	public static void d(KeyedMessage<String, String> msg) {
-		String s = Thread.currentThread().getStackTrace()[2].getClassName();				
-		if (msg != null) out(s.substring(s.lastIndexOf('.') + 1, s.length()), DBG, "-[" 
-				+ msg.topic().substring(0, (msg.topic().length() > 22) ? 22 : msg.topic().length()) 
-				+ "] " + new String(msg.message()));		
 	}
 
 	/**
