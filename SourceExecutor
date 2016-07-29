@@ -1,0 +1,47 @@
+package com.practice;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+
+public class SourceExecutor {
+	public static void main(String args[]) throws IOException {	
+		// Save source in .java file.
+		File root = new File("/java"); // On Windows running on C:\, this is C:\java.
+		File sourceFile = new File(root, "com/practice/Abc.java");
+		sourceFile.getParentFile().mkdirs();
+		Files.write(sourceFile.toPath(), getProgram().getBytes(StandardCharsets.UTF_8));
+
+		// Compile source file.
+		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+		compiler.run(null, null, null, sourceFile.getPath());
+
+		// Load and instantiate compiled class.
+		URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] { root.toURI().toURL() });		
+		try {
+			Class<?> cls = Class.forName("com.practice.Abc", true, classLoader);
+			Object instance = cls.newInstance();
+			System.out.println(instance); // Should print "test.Test@hashcode".
+		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {		
+			e.printStackTrace();
+		}				
+	}
+	
+	private static String getProgram () {
+		return "package com.practice; "
+				+ "public class Abc { "
+				+ "static { "
+					+ "System.out.print(\"This is my \"); "
+				+ "} "
+				+ "public Abc() { "
+					+ "System.out.println(\"promise\"); "
+				+ "} "
+			+ "}";
+	}
+}
